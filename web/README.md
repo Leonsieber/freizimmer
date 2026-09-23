@@ -80,6 +80,10 @@ const DEFAULT_SORT = 'floor-desc';
 Der Haken *nur Unterrichtszimmer* steckt als `checked` im `<input id="only">`
 in [`public/index.html`](public/index.html).
 
+Das Gebäude-Kürzel sind die Buchstaben vor der Nummer: `HL3.02` → `HL`,
+`xt1` → `xt`. `HMR1` bildet deshalb eine eigene Gruppe `HMR` und ist
+standardmässig nicht dabei – bei Bedarf einfach dazuschalten.
+
 Am Handy sind die Lektionsknöpfe eine Zeile zum Wischen – die gewählte Lektion
 wird dabei automatisch in den sichtbaren Bereich geschoben. Alles unter
 *Zeit, Gebäude & Filter* ist eingeklappt, bis man es braucht.
@@ -127,10 +131,6 @@ dieselbe alte Datei zurückgibt. Genau das ist auf einem iPhone passiert.
 Mit dem Fingerabdruck zeigt eine frische `index.html` auf frische Adressen;
 alt und neu können sich nicht mehr vermischen. `vercel.json` sorgt zusätzlich
 dafür, dass `index.html` selbst nie aus dem Zwischenspeicher kommt.
-
-Das Gebäude-Kürzel sind die Buchstaben vor der Nummer: `HL3.02` → `HL`,
-`xt1` → `xt`. `HMR1` bildet deshalb eine eigene Gruppe `HMR` und ist
-standardmässig nicht dabei – bei Bedarf einfach dazuschalten.
 
 ---
 
