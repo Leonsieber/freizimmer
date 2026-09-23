@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#2a6df4">
 <meta name="robots" content="noindex, nofollow">
 <title>Freizimmer</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=210a134b">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232a6df4'/><g fill='none' stroke='%23fff' stroke-width='2' stroke-linejoin='round'><path d='M11 7h10v18H11z'/><path d='M8 25h16'/></g><circle cx='18.3' cy='16.5' r='1.3' fill='%23fff'/></svg>">
 </head>
@@ -25,6 +25,7 @@
     <p class="boot-msg" id="boot-msg"><span class="spinner"></span>wird geladen …</p>
     <p class="fineprint" id="boot-hint" hidden></p>
     <button type="button" class="btn" id="boot-retry" hidden>Neu laden</button>
+    <button type="button" class="linkbtn" id="boot-fresh" hidden>Ohne Zwischenspeicher laden</button>
   </div>
 </section>
 
@@ -34,7 +35,7 @@
 (function () {
   var timer = setTimeout(function () {
     fail('Das dauert ungewöhnlich lange.',
-         'Meist liegt es an der Verbindung. Neu laden hilft fast immer.');
+         'Meist liegt es an der Verbindung.');
   }, 15000);
 
   function fail(nachricht, hinweis) {
@@ -43,25 +44,52 @@
     clearTimeout(timer);
     var msg = document.getElementById('boot-msg');
     var hint = document.getElementById('boot-hint');
-    var retry = document.getElementById('boot-retry');
     if (msg) msg.textContent = nachricht;
     if (hint && hinweis) { hint.textContent = hinweis; hint.hidden = false; }
-    if (retry) retry.hidden = false;
+    var r = document.getElementById('boot-retry');
+    var f = document.getElementById('boot-fresh');
+    if (r) r.hidden = false;
+    if (f) f.hidden = false;
   }
 
   window.__bootFail = fail;
   window.__bootDone = function () { clearTimeout(timer); };
 
+  /*
+   * Den tatsächlichen Grund anzeigen, nicht bloss "irgendetwas ging schief".
+   * Sonst lässt sich ein Fehler, der nur auf einem Gerät auftritt, von aussen
+   * nicht unterscheiden – und man rät.
+   */
   window.addEventListener('error', function (e) {
-    if (e && e.target && e.target.tagName === 'SCRIPT') {
-      fail('Die Seite konnte nicht vollständig geladen werden.',
-           'Ein Teil des Programms fehlt. Neu laden versuchen.');
+    var ziel = e && e.target;
+    if (ziel && ziel.tagName === 'SCRIPT') {
+      fail('Ein Teil des Programms konnte nicht geladen werden.',
+           'Datei: ' + String(ziel.src || '?').split('/').pop());
+    } else if (e && e.message) {
+      fail('Fehler beim Starten.',
+           e.message + (e.filename
+             ? ' (' + String(e.filename).split('/').pop() + ':' + e.lineno + ')'
+             : ''));
     }
   }, true);
+
+  window.addEventListener('unhandledrejection', function (e) {
+    var grund = e && e.reason;
+    fail('Fehler beim Starten.', String((grund && grund.message) || grund));
+  });
 
   document.addEventListener('DOMContentLoaded', function () {
     var r = document.getElementById('boot-retry');
     if (r) r.addEventListener('click', function () { location.reload(); });
+
+    /* Umgeht den Cache: eine neue Adresse liefert garantiert eine frische
+       index.html, und die verweist auf frisch gestempelte Dateinamen. */
+    var f = document.getElementById('boot-fresh');
+    if (f) {
+      f.addEventListener('click', function () {
+        location.replace(location.pathname + '?frisch=' + Date.now());
+      });
+    }
   });
 })();
 </script>
@@ -198,6 +226,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=210a134b"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@ import {
   buildingOf, buildingsOf, sortRooms, SORT_MODES,
   slotKey, indexReports, reportFor, chancesFor, chanceLabel, chanceTone, trustNote,
   STATE_LABEL, STATE_SHORT, percent,
-} from './core.js';
+} from './core.js?v=210a134b';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -216,6 +216,9 @@ $('#login-form').addEventListener('submit', async (e) => {
     return;
   }
   showApp();
+  // Nach dem Anmelden wie ein Neustart behandeln: sonst gilt der Tag als
+  // "unverändert" und die Vorgabe-Lektionen würden übersprungen.
+  state.day = null;
   setNow();
   load();
 });

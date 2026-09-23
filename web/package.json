@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Freie Räume der Kantonsschule Romanshorn finden – Website mit eigenem Backend.",
   "scripts": {
+    "build": "node build-version.mjs",
     "start": "node server.mjs",
     "mock": "node test/dev-mock.mjs"
   },

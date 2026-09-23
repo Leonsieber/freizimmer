@@ -103,6 +103,30 @@ Mobilfunk, Lift. Die Seite geht davon aus, dass das der Normalfall ist:
 * Dauert der Start länger als 15 Sekunden, meldet sich die Startanzeige von
   selbst. Dieser Wachhund läuft als klassisches `<script>` im HTML und
   greift deshalb auch dann, wenn `app.js` gar nicht erst ankommt.
+* Geht trotzdem etwas schief, nennt die Anzeige den **tatsächlichen Grund**
+  (Dateiname, Fehlermeldung, Zeile) statt „irgendetwas ging schief“. Ein
+  Fehler, der nur auf einem Gerät auftritt, lässt sich sonst von aussen nicht
+  unterscheiden.
+
+### Vor jedem Commit: `npm run build`
+
+```bash
+npm run build      # node build-version.mjs
+```
+
+Das hängt an die Verweise auf `app.js`, `styles.css` und `core.js` einen
+Fingerabdruck des Inhalts (`app.js?v=210a134b`).
+
+**Warum das nötig ist:** die drei Dateien liegen einzeln im Browser-Cache und
+laufen getrennt ab. Holt sich ein Handy die neue `app.js`, behält aber die
+alte `core.js`, lässt sich das Modul nicht verknüpfen – die neue `app.js`
+importiert dann etwas, das die alte `core.js` nicht exportiert. Die Seite
+startet überhaupt nicht, und Neuladen hilft nicht, weil derselbe Cache
+dieselbe alte Datei zurückgibt. Genau das ist auf einem iPhone passiert.
+
+Mit dem Fingerabdruck zeigt eine frische `index.html` auf frische Adressen;
+alt und neu können sich nicht mehr vermischen. `vercel.json` sorgt zusätzlich
+dafür, dass `index.html` selbst nie aus dem Zwischenspeicher kommt.
 
 Das Gebäude-Kürzel sind die Buchstaben vor der Nummer: `HL3.02` → `HL`,
 `xt1` → `xt`. `HMR1` bildet deshalb eine eigene Gruppe `HMR` und ist
@@ -304,6 +328,8 @@ node server.mjs
 | `public/app.js` | Bedienung und Darstellung. |
 | `public/core.js` | Reine Rechenlogik frei/belegt – ohne DOM, gut testbar. |
 | `server.mjs` | Server für lokal und für Hosts ohne Serverless. |
+| `build-version.mjs` | Stempelt den Fingerabdruck in index.html und app.js: `npm run build` |
+| `vercel.json` | Cache-Regeln – index.html nie aus dem Zwischenspeicher. |
 | `test/mock-isy.mjs` | Attrappe der isy-API. |
 | `test/dev-mock.mjs` | Startet Website + Attrappe zusammen. |
 
