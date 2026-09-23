@@ -15,20 +15,34 @@ const $ = (sel) => document.querySelector(sel);
  * gleiche Grösse, und sie nehmen die Farbe ihres Umfelds an.
  * ------------------------------------------------------------------ */
 
-const ICON_PATHS = {
-  frei: '<path d="M3.2 8.4l3.1 3.1 6.5-7"/>',
-  drin: '<circle cx="8" cy="8" r="3.2" fill="currentColor" stroke="none"/>',
-  besetzt: '<path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/>',
-  zu: '<rect x="3.4" y="7.1" width="9.2" height="6.1" rx="1.5"/><path d="M5.8 7.1V5.5a2.2 2.2 0 0 1 4.4 0v1.6"/>',
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/*
+ * Als Bauplan statt als Markup: `innerHTML` auf einem SVG-Element ist in
+ * Safari nicht verlässlich – dort blieben die Zeichen einfach unsichtbar.
+ * createElementNS funktioniert überall gleich.
+ */
+const ICON_PARTS = {
+  frei: [['path', { d: 'M3.2 8.4l3.1 3.1 6.5-7' }]],
+  drin: [['circle', { cx: '8', cy: '8', r: '3.2', fill: 'currentColor', stroke: 'none' }]],
+  besetzt: [['path', { d: 'M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6' }]],
+  zu: [
+    ['rect', { x: '3.4', y: '7.1', width: '9.2', height: '6.1', rx: '1.5' }],
+    ['path', { d: 'M5.8 7.1V5.5a2.2 2.2 0 0 1 4.4 0v1.6' }],
+  ],
 };
 
 /** Ein Zustands-Zeichen als SVG-Element. */
 function stateIcon(key) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'ic');
   svg.setAttribute('viewBox', '0 0 16 16');
   svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = ICON_PATHS[key] || '';
+  (ICON_PARTS[key] || []).forEach(([tag, attrs]) => {
+    const part = document.createElementNS(SVG_NS, tag);
+    Object.keys(attrs).forEach((name) => part.setAttribute(name, attrs[name]));
+    svg.appendChild(part);
+  });
   return svg;
 }
 
@@ -103,26 +117,65 @@ function savePrefs() {
  * Serverzugriff
  * ------------------------------------------------------------------ */
 
+/** Nach so langer Zeit gilt eine Anfrage als gescheitert. */
+const FETCH_TIMEOUT_MS = 20000;
+
+/**
+ * Diese Funktion wirft nie.
+ *
+ * Am Handy reisst die Verbindung ständig kurz ab – WLAN zu Mobilfunk, Lift,
+ * Keller. Ein `fetch`, das dabei abbricht, hat früher die ganze Startroutine
+ * mitgerissen: beide Abschnitte der Seite sind `hidden`, also blieb ein
+ * leerer Bildschirm zurück. Darum kommt hier immer eine Antwort heraus,
+ * notfalls eine mit `offline: true`.
+ */
 async function api(path, options) {
-  const res = await fetch(path, {
-    credentials: 'same-origin',
-    headers: { 'content-type': 'application/json' },
-    ...options,
-  });
-  let data = {};
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    data = await res.json();
-  } catch {
-    /* leere Antwort */
+    const res = await fetch(path, {
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      ...options,
+      signal: ctrl.signal,
+    });
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      /* leere Antwort */
+    }
+    return { status: res.status, ok: res.ok, data };
+  } catch (err) {
+    const abbruch = err && err.name === 'AbortError';
+    return {
+      status: 0,
+      ok: false,
+      offline: true,
+      data: {
+        error: abbruch
+          ? 'Zeitüberschreitung – der Server hat nicht rechtzeitig geantwortet.'
+          : 'Keine Verbindung. Bist du noch im Netz?',
+      },
+    };
+  } finally {
+    clearTimeout(timer);
   }
-  return { status: res.status, ok: res.ok, data };
 }
 
 /* ------------------------------------------------------------------ *
  * Anmeldung
  * ------------------------------------------------------------------ */
 
+/** Startanzeige wegnehmen – ab hier führt die App selbst durch. */
+function hideBoot() {
+  const boot = $('#boot');
+  if (boot) boot.hidden = true;
+  if (window.__bootDone) window.__bootDone();
+}
+
 function showLogin(codeRequired) {
+  hideBoot();
   $('#app').hidden = true;
   $('#login').hidden = false;
   $('#code-row').hidden = !codeRequired;
@@ -130,6 +183,7 @@ function showLogin(codeRequired) {
 }
 
 function showApp() {
+  hideBoot();
   $('#login').hidden = true;
   $('#app').hidden = false;
 }
@@ -183,16 +237,25 @@ async function load() {
   setStatus('<span class="spinner"></span>Lade Räume und Belegungen …');
   clearBody();
 
+  try {
+    await loadInto(day, sameDay);
+  } finally {
+    // Muss auch bei einem Fehler fallen, sonst hängt die App für immer auf
+    // "Lade Räume und Belegungen …" und der Knopf ↻ tut nichts mehr.
+    state.loading = false;
+  }
+}
+
+async function loadInto(day, sameDay) {
   const tz = -new Date().getTimezoneOffset();
-  const { ok, status, data } = await api('/api/data?day=' + day + '&tz=' + tz);
-  state.loading = false;
+  const { ok, status, data, offline } = await api('/api/data?day=' + day + '&tz=' + tz);
 
   if (status === 401) {
     showLogin(false);
     return;
   }
   if (!ok) {
-    renderError(data.error || 'Laden fehlgeschlagen.', data.detail);
+    renderError(data.error || 'Laden fehlgeschlagen.', data.detail, offline);
     return;
   }
 
@@ -315,13 +378,24 @@ function clearBody() {
   document.querySelectorAll('#body > *:not(#status)').forEach((n) => n.remove());
 }
 
-function renderError(message, detail) {
+function renderError(message, detail, offline) {
   setStatus('');
   clearBody();
   const box = document.createElement('p');
   box.className = 'note is-err';
-  box.textContent = 'Fehler: ' + message;
+  box.textContent = (offline ? '' : 'Fehler: ') + message;
   $('#body').append(box);
+
+  // Bei einem Verbindungsabbruch ist ein zweiter Versuch fast immer die Lösung.
+  if (offline) {
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'btn';
+    again.textContent = 'Nochmal versuchen';
+    again.addEventListener('click', () => load());
+    $('#body').append(again);
+  }
+
   if (detail) {
     const d = document.createElement('details');
     const s = document.createElement('summary');
@@ -1045,7 +1119,17 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
     if (typeof prefs.only === 'boolean') $('#only').checked = prefs.only;
   }
 
-  const { data } = await api('/api/me');
+  const { ok, data, offline } = await api('/api/me');
+
+  // Kommt der Server nicht ans Telefon, bleibt die Startanzeige stehen und
+  // bietet "Neu laden" an – statt eines leeren Bildschirms.
+  if (!ok && offline) {
+    if (window.__bootFail) {
+      window.__bootFail(data.error, 'Sobald du wieder Empfang hast, neu laden.');
+    }
+    return;
+  }
+
   if (data.loggedIn) {
     showApp();
     setNow();
@@ -1053,4 +1137,11 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
   } else {
     showLogin(Boolean(data.codeRequired));
   }
-})();
+})().catch((err) => {
+  // Letztes Netz: ein Programmfehler darf keinen leeren Bildschirm hinterlassen.
+  console.error('[Freizimmer] Start fehlgeschlagen:', err);
+  if (window.__bootFail) {
+    window.__bootFail('Die Seite konnte nicht gestartet werden.',
+      String((err && err.message) || err));
+  }
+});

@@ -88,6 +88,22 @@ Die vier Zustände tragen selbst gezeichnete Zeichen (Haken, Punkt, Kreuz,
 Schloss) aus einem einzigen 16er-Raster – bewusst keine Emoji, die bringen
 eigene Farben und eine fremde Bildsprache mit.
 
+### Wenn die Verbindung wegbricht
+
+Am Handy reisst das Netz ständig kurz ab – Funkloch, Wechsel von WLAN auf
+Mobilfunk, Lift. Die Seite geht davon aus, dass das der Normalfall ist:
+
+* Jede Anfrage bricht nach 20 Sekunden ab, statt unbegrenzt zu warten.
+* Scheitert sie, erscheint „Keine Verbindung“ mit einem Knopf *Nochmal
+  versuchen* – ohne die Seite neu laden zu müssen.
+* Scheitert schon der allererste Aufruf, bleibt die Startanzeige stehen und
+  bietet *Neu laden* an. Vorher gab es an dieser Stelle einen leeren
+  Bildschirm, weil beide Abschnitte der Seite bis zum ersten Rendern
+  `hidden` sind.
+* Dauert der Start länger als 15 Sekunden, meldet sich die Startanzeige von
+  selbst. Dieser Wachhund läuft als klassisches `<script>` im HTML und
+  greift deshalb auch dann, wenn `app.js` gar nicht erst ankommt.
+
 Das Gebäude-Kürzel sind die Buchstaben vor der Nummer: `HL3.02` → `HL`,
 `xt1` → `xt`. `HMR1` bildet deshalb eine eigene Gruppe `HMR` und ist
 standardmässig nicht dabei – bei Bedarf einfach dazuschalten.

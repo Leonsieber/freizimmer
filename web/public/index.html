@@ -12,6 +12,60 @@
 </head>
 <body>
 
+<!-- ----------------------------------------------------------------- *
+     Startanzeige
+
+     Sichtbar, bis app.js entschieden hat, was gezeigt wird. Ohne sie wäre
+     der Bildschirm bis dahin leer – und bliebe es, wenn das Laden scheitert.
+     Am Handy passiert genau das regelmässig: Funkloch, Netzwechsel, Lift.
+ * ----------------------------------------------------------------- -->
+<section id="boot">
+  <div class="card boot-card">
+    <h1>Freizimmer</h1>
+    <p class="boot-msg" id="boot-msg"><span class="spinner"></span>wird geladen …</p>
+    <p class="fineprint" id="boot-hint" hidden></p>
+    <button type="button" class="btn" id="boot-retry" hidden>Neu laden</button>
+  </div>
+</section>
+
+<script>
+/* Bewusst klassisches, sofort ausgeführtes Script: Es muss auch dann laufen,
+   wenn app.js gar nicht erst ankommt oder der Browser es nicht versteht. */
+(function () {
+  var timer = setTimeout(function () {
+    fail('Das dauert ungewöhnlich lange.',
+         'Meist liegt es an der Verbindung. Neu laden hilft fast immer.');
+  }, 15000);
+
+  function fail(nachricht, hinweis) {
+    var boot = document.getElementById('boot');
+    if (!boot || boot.hidden) return;          // App läuft schon – nichts tun
+    clearTimeout(timer);
+    var msg = document.getElementById('boot-msg');
+    var hint = document.getElementById('boot-hint');
+    var retry = document.getElementById('boot-retry');
+    if (msg) msg.textContent = nachricht;
+    if (hint && hinweis) { hint.textContent = hinweis; hint.hidden = false; }
+    if (retry) retry.hidden = false;
+  }
+
+  window.__bootFail = fail;
+  window.__bootDone = function () { clearTimeout(timer); };
+
+  window.addEventListener('error', function (e) {
+    if (e && e.target && e.target.tagName === 'SCRIPT') {
+      fail('Die Seite konnte nicht vollständig geladen werden.',
+           'Ein Teil des Programms fehlt. Neu laden versuchen.');
+    }
+  }, true);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var r = document.getElementById('boot-retry');
+    if (r) r.addEventListener('click', function () { location.reload(); });
+  });
+})();
+</script>
+
 <!-- ---------------- Anmeldung ---------------- -->
 <section id="login" hidden>
   <form id="login-form" class="card">

@@ -46,6 +46,10 @@
 body {
   margin: 0;
   padding: 0 16px;
+  /* viewport-fit=cover schiebt die Seite unter Notch und Dynamic Island.
+     Im Querformat liegt der Rand sonst hinter der Kamera. */
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   background: var(--bg);
   color: var(--fg);
   font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -60,10 +64,24 @@ h2 { font-size: 18px; margin: 0; }
 .muted { color: var(--muted); font-size: 13px; }
 .tiny { font-size: 11.5px; }
 
+/* ---------------- Startanzeige ---------------- */
+
+#boot {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: 24px;
+}
+.boot-card { max-width: 340px; text-align: center; align-items: center; }
+.boot-msg { margin: 0; color: var(--muted); font-size: 14px; }
+
 /* ---------------- Anmeldung ---------------- */
 
 #login {
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;   /* Rueckfall fuer iOS vor 15.4 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,11 +233,15 @@ header > div { flex: 1; min-width: 0; }
 .field-date { flex: 1 1 160px; }
 .group-day .btn { flex: 0 0 auto; }
 
-/* iOS gibt Datumsfeldern sonst eine eigene Mindestbreite und sprengt damit
-   den Kasten. appearance:none nimmt ihnen die, das Feld bleibt bedienbar. */
+/*
+ * Datums- und Zeitfelder bleiben bewusst in ihrer nativen Darstellung.
+ * `appearance: none` hat auf iOS den Wert verrutschen lassen und teils ganz
+ * verschluckt – und gegen den Überlauf half ohnehin etwas anderes:
+ * `min-width: 0` auf .field, damit das Feld unter seine Eigenbreite schrumpfen
+ * darf. Ohne das sprengt iOS den Kasten.
+ */
 input[type=date], input[type=time] {
-  -webkit-appearance: none;
-  appearance: none;
+  max-width: 100%;
   text-align: left;
 }
 
@@ -242,13 +264,12 @@ input[type=date], input[type=time] {
 .scrollchips {
   flex-wrap: nowrap;
   overflow-x: auto;
-  scroll-snap-type: x proximity;
   padding-bottom: 6px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .scrollchips::-webkit-scrollbar { display: none; }
-.scrollchips > * { flex: 0 0 auto; scroll-snap-align: center; }
+.scrollchips > * { flex: 0 0 auto; }
 
 .chip {
   font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 999px;
@@ -419,7 +440,9 @@ footer {
   border-radius: 18px 18px 0 0;
   box-shadow: var(--shadow);
   padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
-  max-height: 88dvh; overflow-y: auto;
+  max-height: 88vh;
+  max-height: 88dvh;    /* Rueckfall fuer iOS vor 15.4 */
+  overflow-y: auto;
   animation: sheet-in .18s ease-out;
 }
 @keyframes sheet-in { from { transform: translateY(18px); opacity: .6; } }
@@ -520,7 +543,11 @@ footer {
 /* ---------------- Handy ---------------- */
 
 @media (max-width: 720px) {
-  body { padding: 0 12px; }
+  body {
+    padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
   #app { padding-block: 10px; }
   h1 { font-size: 19px; }
 
